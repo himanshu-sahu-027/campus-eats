@@ -13,7 +13,7 @@ import {
 import { verifyRazorpaySignature } from "../src/utils/razorpayUtils.js";
 import { assignFees } from "../src/services/managerFee.service.js";
 import { recordOfflinePayment } from "../src/services/payment.service.js";
-import { getMyPaymentHistory } from "../src/services/studentFee.service.js";
+import { getMyFees, getMyPaymentHistory } from "../src/services/studentFee.service.js";
 import { createHmac } from "node:crypto";
 
 /**
@@ -100,6 +100,49 @@ test("fee schema validates monthly and semester conditional billing fields", asy
         billingMonth: 1,
     });
     await assert.rejects(invalidSemester.validate());
+});
+
+test("student fee summaries aggregate the authenticated student's paise balances using an ObjectId match", async (t) => {
+    const feeRows = [
+        { _id: FEE_ID, studentId: STUDENT_ONE, feeType: "MONTHLY", title: "November fee", academicYear: "2026-2027", billingMonth: 11, billingYear: 2026, amount: 499967, paidAmount: 0, balanceAmount: 499967, dueDate: new Date("2026-10-01T00:00:00.000Z") },
+        { _id: "507f1f77bcf86cd799439015", studentId: STUDENT_ONE, feeType: "MONTHLY", title: "December fee", academicYear: "2026-2027", billingMonth: 12, billingYear: 2026, amount: 300000, paidAmount: 100000, balanceAmount: 200000, dueDate: new Date("2026-12-20T00:00:00.000Z") },
+        { _id: "507f1f77bcf86cd799439016", studentId: STUDENT_ONE, feeType: "SEMESTER", title: "Semester fee", academicYear: "2026-2027", semester: "SEMESTER_1", amount: 200000, paidAmount: 200000, balanceAmount: 0, dueDate: new Date("2026-10-01T00:00:00.000Z") },
+    ];
+    const matchedSummaries = new Map([
+        [STUDENT_ONE, [{ totalAmount: 999967, totalPaid: 300000, totalOutstanding: 699967 }]],
+        [STUDENT_TWO, [{ totalAmount: 125000, totalPaid: 0, totalOutstanding: 125000 }]],
+    ]);
+    const restores = [
+        replaceMethod(Fee, "updateMany", async () => ({ modifiedCount: 0 })),
+        replaceMethod(Fee, "find", (criteria) => ({
+            sort() { return this; },
+            skip() { return this; },
+            limit() { return Promise.resolve(feeRows.filter((fee) => fee.studentId === String(criteria.studentId))); },
+        })),
+        replaceMethod(Fee, "countDocuments", async (criteria) => feeRows.filter((fee) => fee.studentId === String(criteria.studentId)).length),
+        replaceMethod(Fee, "aggregate", async (pipeline) => {
+            const matchId = pipeline[0].$match.studentId;
+            assert.ok(matchId instanceof mongoose.Types.ObjectId, "aggregation match must use a MongoDB ObjectId");
+            const studentId = matchId.toString();
+            assert.deepEqual(pipeline[1].$group, {
+                _id: null,
+                totalAmount: { $sum: "$amount" },
+                totalPaid: { $sum: "$paidAmount" },
+                totalOutstanding: { $sum: "$balanceAmount" },
+            });
+            return matchedSummaries.get(studentId) || [];
+        }),
+    ];
+    t.after(() => restores.forEach((restore) => restore()));
+
+    const result = await getMyFees(STUDENT_ONE, { page: "1", limit: "10" });
+    assert.equal(result.fees.length, 3);
+    assert.equal(result.fees[0].status, "OVERDUE");
+    assert.deepEqual(result.summary, { totalAmount: 9999.67, totalPaid: 3000, totalOutstanding: 6999.67 });
+    assert.equal(result.summary.totalOutstanding, paiseToRupees(499967 + 200000));
+
+    const otherStudent = await getMyFees(STUDENT_TWO, { page: "1", limit: "10" });
+    assert.deepEqual(otherStudent.summary, { totalAmount: 1250, totalPaid: 0, totalOutstanding: 1250 });
 });
 
 test("payment schema keeps gateway IDs unique and separates offline records", async () => {

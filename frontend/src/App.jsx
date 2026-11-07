@@ -1,5 +1,6 @@
 import { AuthProvider } from "./features/auth/context/AuthContext.jsx";
 import AppRoutes from "./routes/AppRoutes.jsx";
+import { AdminAuthProvider } from "./features/admin/context/AdminAuthContext.jsx";
 
 /**
  * Mounts the shared authentication provider and application route tree.
@@ -11,7 +12,7 @@ import AppRoutes from "./routes/AppRoutes.jsx";
 export default function App() {
     return (
         <AuthProvider>
-            <AppRoutes />
+            <AdminAuthProvider><AppRoutes /></AdminAuthProvider>
         </AuthProvider>
     );
 }

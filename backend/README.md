@@ -2082,3 +2082,26 @@ The API contains 52 versioned endpoints plus the health endpoint.
   implementation reuses an existing pending order when the student requests
   another order for that fee; it does not document a separate order-expiry
   cleanup route.
+
+## Admin accounts and recurring weekly menu
+
+Admins use a separate `adminToken` cookie and are provisioned with `npm run seed:admin` using `ADMIN_NAME`, `ADMIN_EMAIL`, and `ADMIN_PASSWORD`. There is no public Admin registration. Admins manage Managers from `/admin/login` and the dedicated admin interface.
+
+Admin APIs: `POST /api/v1/adminAuth/login`, `POST /api/v1/adminAuth/logout`, `GET /api/v1/adminAuth/me`; `POST /api/v1/admin/managers`, `GET /api/v1/admin/managers?search=`, `GET /api/v1/admin/managers/:managerId`, `PATCH /api/v1/admin/managers/:managerId`, and `PATCH /api/v1/admin/managers/:managerId/deactivate`. Manager creation accepts `fullName`, `email`, `phone`, and `password`; email is checked across Admin, Manager, and Student accounts. Passwords are hashed and responses omit credentials.
+
+Weekly menu APIs: `GET` and `PUT /api/v1/manager/menus/weekly` (manager), and `GET /api/v1/student/menus/weekly` (read-only). The single template contains seven Sunday-through-Saturday `days`; each day has `dayOfWeek` and four meals, each with `items`, `description`, and `servingTime`. A date-specific menu overrides the recurring day for that date; it does not change the template. Phone numbers must be exactly ten digits.
+
+Seed the Admin and default weekly template idempotently:
+
+```powershell
+$env:ADMIN_NAME = "System Admin"
+$env:ADMIN_EMAIL = "admin@example.test"
+$env:ADMIN_PASSWORD = "<private password>"
+npm run seed:admin
+npm run seed:weekly-menu
+npm start
+```
+
+Sign in at `/admin/login` and use Managers to create Manager accounts. The weekly-menu seed leaves an existing template unchanged.
+
+The Manager and Student `GET /api/v1/{role}/menus/today` endpoints resolve the current Asia/Kolkata date using the same selection rule: a date-specific menu overrides the recurring weekday entry. The response includes `dayOfWeek` and the source marker.

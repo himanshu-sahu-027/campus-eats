@@ -6,11 +6,14 @@ import Complaint from "../src/models/complaint.model.js";
 import Fee from "../src/models/fee.model.js";
 import Manager from "../src/models/manager.model.js";
 import Menu from "../src/models/menu.model.js";
+import WeeklyMenu from "../src/models/weeklyMenu.model.js";
 import Payment from "../src/models/payment.model.js";
 import Student from "../src/models/student.model.js";
 import { envConfig } from "../src/config/env.js";
 import { getManagerDashboard } from "../src/services/managerDashboard.service.js";
 import { getStudentDashboard } from "../src/services/studentDashboard.service.js";
+import { getTodayMenu } from "../src/services/studentMenu.service.js";
+import { getCurrentISTDate, normalizeMenuDate } from "../src/utils/dateUtils.js";
 
 /**
  * Dashboard service and route tests verify database aggregation contracts,
@@ -104,15 +107,20 @@ test("manager dashboard returns zero totals and an empty payment list when colle
     assert.deepEqual(dashboard.recentPayments, []);
 });
 
-test("student dashboard scopes fees and complaints to auth student and uses today's IST menu date", async (t) => {
+test("student dashboard reuses today's weekly menu fallback and preserves fees and complaints", async (t) => {
     let studentCriteria;
     let menuCriteria;
+    let weeklyCriteria;
+    let dateOverride = null;
     let feePipeline;
     let complaintCriteria;
-    const menu = {
-        date: new Date("2026-10-31T00:00:00.000Z"),
-        meals: { breakfast: { items: ["Idli"] }, lunch: { items: [] }, snacks: { items: [] }, dinner: { items: [] } },
+    const sundayMeals = {
+        breakfast: { items: ["Idli"], description: "Steamed rice cakes", servingTime: "7:30 AM" },
+        lunch: { items: ["Rice", "Dal"], description: "Lunch", servingTime: "12:30 PM" },
+        snacks: { items: ["Fruit"], description: "Evening snack", servingTime: "4:30 PM" },
+        dinner: { items: ["Roti", "Paneer"], description: "Dinner", servingTime: "7:30 PM" },
     };
+    const weeklyMenu = { days: [{ dayOfWeek: "SUNDAY", meals: sundayMeals }] };
     const complaintRows = [{
         _id: "507f1f77bcf86cd799439021",
         subject: "Food quality",
@@ -131,13 +139,6 @@ test("student dashboard scopes fees and complaints to auth student and uses toda
                 status: "APPROVED",
             });
         },
-    };
-    const menuQuery = {
-        select(value) {
-            assert.equal(value, "-createdBy -updatedBy");
-            return this;
-        },
-        lean() { return Promise.resolve(menu); },
     };
     const complaintQuery = {
         select(value) {
@@ -159,9 +160,13 @@ test("student dashboard scopes fees and complaints to auth student and uses toda
             studentCriteria = criteria;
             return studentQuery;
         }),
-        replaceMethod(Menu, "findOne", (criteria) => {
+        replaceMethod(Menu, "findOne", async (criteria) => {
             menuCriteria = criteria;
-            return menuQuery;
+            return dateOverride; // Initially no override: use the weekly Sunday template.
+        }),
+        replaceMethod(WeeklyMenu, "findOne", async (criteria) => {
+            weeklyCriteria = criteria;
+            return weeklyMenu;
         }),
         replaceMethod(Fee, "aggregate", async (pipeline) => {
             feePipeline = pipeline;
@@ -183,14 +188,24 @@ test("student dashboard scopes fees and complaints to auth student and uses toda
 
     const dashboard = await getStudentDashboard(STUDENT_ID);
     assert.equal(String(studentCriteria), STUDENT_ID);
-    assert.equal(menuCriteria.date.toISOString(), "2026-10-31T00:00:00.000Z");
+    assert.equal(menuCriteria.date.toISOString(), normalizeMenuDate(getCurrentISTDate()).toISOString());
+    assert.deepEqual(weeklyCriteria, { key: "default" });
     assert.deepEqual(feePipeline[0], { $match: { studentId: STUDENT_ID } });
     assert.deepEqual(complaintCriteria, { studentId: STUDENT_ID });
     assert.deepEqual(dashboard.student, { fullName: "Student One", rollNumber: "S-001" });
     assert.equal(dashboard.feeSummary.totalFee, 500);
     assert.equal(dashboard.feeSummary.paidAmount, 150);
     assert.equal(dashboard.feeSummary.outstandingAmount, 350);
-    assert.equal(dashboard.todayMenu.meals.breakfast.items[0], "Idli");
+    assert.deepEqual(dashboard.todayMenu.meals, sundayMeals);
+    const menuEndpointResult = await getTodayMenu();
+    assert.deepEqual(dashboard.todayMenu.meals, menuEndpointResult.meals);
+    assert.equal(menuEndpointResult.source, "WEEKLY");
+    // A date-specific menu keeps priority over the recurring template on both reads.
+    dateOverride = { date: menuCriteria.date, meals: { ...sundayMeals, breakfast: { items: ["Special Sunday brunch"], description: "Override", servingTime: "9:00 AM" } } };
+    const overrideFromMenuPage = await getTodayMenu();
+    const overrideFromDashboard = await getStudentDashboard(STUDENT_ID);
+    assert.deepEqual(overrideFromDashboard.todayMenu.meals, overrideFromMenuPage.meals);
+    assert.deepEqual(overrideFromDashboard.todayMenu.meals.breakfast.items, ["Special Sunday brunch"]);
     assert.equal(dashboard.recentComplaints[0].subject, "Food quality");
     assert.equal(dashboard.recentComplaints[0].id, complaintRows[0]._id);
 });
@@ -206,7 +221,6 @@ test("student dashboard returns null menu and empty summaries for a student with
             });
         },
     };
-    const menuQuery = { select() { return this; }, lean: async () => null };
     const complaintQuery = {
         select() { return this; },
         sort() { return this; },
@@ -215,7 +229,8 @@ test("student dashboard returns null menu and empty summaries for a student with
     };
     const restores = [
         replaceMethod(Student, "findById", () => studentQuery),
-        replaceMethod(Menu, "findOne", () => menuQuery),
+        replaceMethod(Menu, "findOne", async () => null),
+        replaceMethod(WeeklyMenu, "findOne", async () => null),
         replaceMethod(Fee, "aggregate", async () => []),
         replaceMethod(Complaint, "find", () => complaintQuery),
     ];
@@ -223,6 +238,7 @@ test("student dashboard returns null menu and empty summaries for a student with
 
     const dashboard = await getStudentDashboard(STUDENT_ID);
     assert.equal(dashboard.todayMenu, null);
+    await assert.rejects(getTodayMenu(), { statusCode: 404 });
     assert.deepEqual(dashboard.recentComplaints, []);
     assert.equal(dashboard.feeSummary.totalFee, 0);
     assert.equal(dashboard.feeSummary.paidAmount, 0);
@@ -297,7 +313,6 @@ test("authenticated student receives only their personalized dashboard response"
         envConfig.JWT_SECRET,
         { subject: STUDENT_ID, issuer: "mess-management-api", expiresIn: "5m" },
     );
-    let studentLookupCount = 0;
     const student = {
         _id: { toString: () => STUDENT_ID },
         fullName: "Student One",
@@ -313,13 +328,21 @@ test("authenticated student receives only their personalized dashboard response"
         createdAt: new Date(),
         updatedAt: new Date(),
     };
+    const meals = {
+        breakfast: { items: ["Poha"], description: "Fresh poha", servingTime: "7:30 AM" },
+        lunch: { items: ["Rice", "Dal"], description: "Lunch service", servingTime: "12:30 PM" },
+        snacks: { items: ["Banana"], description: "Evening snack", servingTime: "4:00 PM" },
+        dinner: { items: ["Roti", "Curry"], description: "Dinner service", servingTime: "7:30 PM" },
+    };
+    let override = null;
+    let weekly = { days: ["SUNDAY", "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY"].map((dayOfWeek) => ({ dayOfWeek, meals })) };
     const restores = [
-        replaceMethod(Student, "findById", () => {
-            studentLookupCount += 1;
-            if (studentLookupCount === 1) return Promise.resolve(student);
-            return { select: async () => student };
-        }),
-        replaceMethod(Menu, "findOne", () => ({ select() { return this; }, lean: async () => null })),
+        replaceMethod(Student, "findById", () => ({
+            then(resolve, reject) { return Promise.resolve(student).then(resolve, reject); },
+            select: async () => student,
+        })),
+        replaceMethod(Menu, "findOne", async () => override),
+        replaceMethod(WeeklyMenu, "findOne", async () => weekly),
         replaceMethod(Fee, "aggregate", async (pipeline) => {
             assert.deepEqual(pipeline[0], { $match: { studentId: student._id } });
             return [];
@@ -344,13 +367,42 @@ test("authenticated student receives only their personalized dashboard response"
         server.close((error) => error ? reject(error) : resolve());
     }));
 
-    const response = await fetch(`http://127.0.0.1:${server.address().port}/api/v1/student/dashboard`, {
-        headers: { Cookie: `studentToken=${token}` },
-    });
-    const body = await response.json();
-    assert.equal(response.status, 200);
+    const base = `http://127.0.0.1:${server.address().port}/api/v1/student`;
+    const headers = { Cookie: `studentToken=${token}` };
+    const [dashboardResponse, todayResponse] = await Promise.all([
+        fetch(`${base}/dashboard`, { headers }),
+        fetch(`${base}/menus/today`, { headers }),
+    ]);
+    const body = await dashboardResponse.json();
+    const menuBody = await todayResponse.json();
+    assert.equal(dashboardResponse.status, 200);
+    assert.equal(todayResponse.status, 200);
     assert.equal(body.message, "Student dashboard data fetched successfully");
     assert.deepEqual(body.data.student, { fullName: "Student One", rollNumber: "S-001" });
-    assert.equal(body.data.todayMenu, null);
+    assert.deepEqual(body.data.todayMenu.meals, menuBody.data.menu.meals);
+    assert.deepEqual(body.data.todayMenu.meals, meals);
     assert.deepEqual(body.data.recentComplaints, []);
+    assert.deepEqual(body.data.feeSummary, { totalFee: 0, paidAmount: 0, outstandingAmount: 0, totalFeeRecords: 0, paidFeeRecords: 0, pendingFeeRecords: 0 });
+
+    // Both routes select the same date-specific override when one is published.
+    override = { date: menuBody.data.menu.date, meals: { ...meals, breakfast: { items: ["Special brunch"], description: "Override", servingTime: "9:00 AM" } } };
+    const [overrideDashboardResponse, overrideMenuResponse] = await Promise.all([
+        fetch(`${base}/dashboard`, { headers }),
+        fetch(`${base}/menus/today`, { headers }),
+    ]);
+    const overrideDashboard = await overrideDashboardResponse.json();
+    const overrideMenu = await overrideMenuResponse.json();
+    assert.deepEqual(overrideDashboard.data.todayMenu.meals, overrideMenu.data.menu.meals);
+    assert.deepEqual(overrideDashboard.data.todayMenu.meals.breakfast.items, ["Special brunch"]);
+
+    // Empty data keeps the existing contract: dashboard null, menu endpoint 404.
+    override = null;
+    weekly = null;
+    const [emptyDashboardResponse, emptyMenuResponse] = await Promise.all([
+        fetch(`${base}/dashboard`, { headers }),
+        fetch(`${base}/menus/today`, { headers }),
+    ]);
+    const emptyDashboard = await emptyDashboardResponse.json();
+    assert.equal(emptyDashboard.data.todayMenu, null);
+    assert.equal(emptyMenuResponse.status, 404);
 });

@@ -20,6 +20,9 @@ const managerEndpoints = [
     ["POST", "/api/v1/manager/menus"],
     ["GET", "/api/v1/manager/menus"],
     ["GET", "/api/v1/manager/menus/upcoming"],
+    ["GET", "/api/v1/manager/menus/today"],
+    ["GET", "/api/v1/manager/menus/weekly"],
+    ["PUT", "/api/v1/manager/menus/weekly"],
     ["GET", "/api/v1/manager/menus/2026-10-10"],
     ["PATCH", `/api/v1/manager/menus/${ID}`],
     ["DELETE", `/api/v1/manager/menus/${ID}`],
@@ -49,6 +52,7 @@ const studentEndpoints = [
     ["GET", `/api/v1/student/fees/${ID}/payments`],
     ["GET", `/api/v1/student/fees/${ID}`],
     ["GET", "/api/v1/student/menus/today"],
+    ["GET", "/api/v1/student/menus/weekly"],
     ["GET", "/api/v1/student/menus/upcoming"],
     ["GET", "/api/v1/student/menus/2026-10-10"],
     ["GET", "/api/v1/student/notices"],
@@ -61,8 +65,8 @@ const protectedEndpoints = [
     ...studentEndpoints.map(([method, path]) => ({ method, path, cookie: "studentToken", oppositeRole: "MANAGER" })),
 ];
 
-test("all 47 protected endpoints reject a valid token for the other role", async (t) => {
-    assert.equal(protectedEndpoints.length, 47);
+test("all protected endpoints reject a valid token for the other role", async (t) => {
+    assert.equal(protectedEndpoints.length, 51);
     const tokens = {
         MANAGER: jwt.sign(
             { role: "MANAGER" },
@@ -91,5 +95,19 @@ test("all 47 protected endpoints reject a valid token for the other role", async
             headers: { Cookie: `${cookie}=${tokens[oppositeRole]}` },
         });
         assert.equal(response.status, 403, `${method} ${path} must reject the opposite role`);
+    }
+});
+
+test("Admin manager APIs reject Manager and Student sessions", async (t) => {
+    const tokens = Object.fromEntries(["MANAGER", "STUDENT"].map((role) => [role, jwt.sign(
+        { role }, envConfig.JWT_SECRET, { subject: ID, issuer: "mess-management-api", expiresIn: "5m" },
+    )]));
+    const server = app.listen(0);
+    await new Promise((resolve, reject) => { server.once("listening", resolve); server.once("error", reject); });
+    t.after(async () => new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve())));
+    const origin = `http://127.0.0.1:${server.address().port}`;
+    for (const role of ["MANAGER", "STUDENT"]) {
+        const response = await fetch(`${origin}/api/v1/admin/managers`, { headers: { Cookie: `adminToken=${tokens[role]}` } });
+        assert.equal(response.status, 401);
     }
 });

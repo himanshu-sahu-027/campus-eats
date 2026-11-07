@@ -9,6 +9,7 @@ import {
     today,
     upcoming,
 } from "../controllers/studentMenu.controller.js";
+import { read as readWeekly } from "../controllers/weeklyMenu.controller.js";
 
 /** Student menu routes are authenticated and read-only by design. */
 const router = Router();
@@ -20,6 +21,7 @@ router.use(authenticateStudent);
  * @access Private (Student)
  */
 router.get("/today", asyncHandler(today));
+router.get("/weekly", asyncHandler(readWeekly));
 /**
  * @route GET /api/v1/student/menus/upcoming
  * @description List current day's and upcoming menus

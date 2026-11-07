@@ -23,10 +23,13 @@ import {
     createMenu,
     deleteMenu,
     getMenuByDate,
+    getManagerTodayMenu,
     getMenus,
     getStudentUpcomingMenus,
     getTodayMenu,
+    getWeeklyMenu,
     getUpcomingMenus,
+    saveWeeklyMenu,
     updateMenu,
 } from "../src/features/menus/services/menu.service.js";
 import {
@@ -132,6 +135,10 @@ const menuServiceCalls = [
     ["delete menu", "delete", `/manager/menus/${menuId}`, () => deleteMenu(menuId)],
     ["get manager upcoming menus", "get", "/manager/menus/upcoming", () => getUpcomingMenus(pageParams), pageParams],
     ["get today's student menu", "get", "/student/menus/today", getTodayMenu],
+    ["get today's manager menu", "get", "/manager/menus/today", getManagerTodayMenu],
+    ["get manager weekly menu", "get", "/manager/menus/weekly", () => getWeeklyMenu("manager")],
+    ["get student weekly menu", "get", "/student/menus/weekly", () => getWeeklyMenu("student")],
+    ["save manager weekly menu", "put", "/manager/menus/weekly", () => saveWeeklyMenu([]), { days: [] }],
     ["get student upcoming menus", "get", "/student/menus/upcoming", () => getStudentUpcomingMenus(pageParams), pageParams],
 ];
 const feeServiceCalls = [
@@ -203,8 +210,8 @@ beforeEach(() => {
 });
 
 describe("frontend API service contracts", () => {
-    it("covers every frontend call for the 52 versioned backend endpoints", () => {
-        expect(apiServiceCalls).toHaveLength(52);
+    it("covers every frontend call for the 56 versioned backend endpoints", () => {
+        expect(apiServiceCalls).toHaveLength(56);
     });
 
     it.each(apiServiceCalls)("%s uses %s %s with cookie credentials", async (_name, method, path, invoke, body) => {

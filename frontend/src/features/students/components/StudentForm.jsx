@@ -38,7 +38,9 @@ export default function StudentForm({
     const [validationError, setValidationError] = useState("");
 
     function update(event) {
-        setValues((current) => ({ ...current, [event.target.name]: event.target.value }));
+        const digits = event.target.value.replace(/\D/g, "");
+        const value = event.target.name === "phone" ? (digits.length > 10 ? "" : digits) : event.target.value;
+        setValues((current) => ({ ...current, [event.target.name]: value }));
     }
 
     async function submit(event) {
@@ -48,6 +50,10 @@ export default function StudentForm({
         if (mode === "create") required.push("password");
         if (required.some((field) => !values[field].trim())) {
             setValidationError("Complete all required fields before saving.");
+            return;
+        }
+        if (!/^\d{10}$/.test(values.phone)) {
+            setValidationError("Phone number must contain exactly 10 digits.");
             return;
         }
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values.email.trim())) {
@@ -81,6 +87,7 @@ export default function StudentForm({
                             type={field.type || "text"}
                             autoComplete={field.autoComplete}
                             maxLength={field.name === "fullName" ? 120 : field.name === "email" ? 254 : field.name === "rollNumber" ? 50 : field.name === "roomNumber" ? 50 : 20}
+                            {...(field.name === "phone" ? { inputMode: "numeric", pattern: "[0-9]{10}", maxLength: 10 } : {})}
                             value={values[field.name]}
                             onChange={update}
                             className="h-12 w-full rounded-xl border border-slate-200 px-4 text-sm outline-none transition placeholder:text-slate-400 focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50"

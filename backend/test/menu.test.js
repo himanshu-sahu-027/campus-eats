@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import Menu from "../src/models/menu.model.js";
+import WeeklyMenu from "../src/models/weeklyMenu.model.js";
 import {
     compareMenuDates,
     getCurrentISTDate,
@@ -22,6 +23,7 @@ import {
     getTodayMenu,
     getUpcomingMenus as getStudentUpcomingMenus,
 } from "../src/services/studentMenu.service.js";
+import { getMenuForDate, getResolvedTodayMenu } from "../src/services/menuRead.service.js";
 
 const MANAGER_ID = "507f1f77bcf86cd799439011";
 const BASE_MEALS = {
@@ -176,7 +178,8 @@ test("date lookup validates dates and returns 404 when no menu is published", as
         observed.push(criteria);
         return null;
     });
-    t.after(restoreFindOne);
+    const restoreWeekly = replaceMethod(WeeklyMenu, "findOne", async () => null);
+    t.after(() => { restoreFindOne(); restoreWeekly(); });
 
     await assert.rejects(getMenuByDate("2026-02-30"), { statusCode: 400 });
     await assert.rejects(getMenuByDate("2026-11-01"), { statusCode: 404 });
@@ -195,6 +198,59 @@ test("today's student lookup uses the IST calendar date", async (t) => {
     const menu = await getTodayMenu();
     assert.equal(menu.date.toISOString(), observed.date.toISOString());
     assert.equal(observed.date.getUTCHours(), 0);
+});
+
+test("resolved weekday mapping uses explicit day names for all seven template entries", async (t) => {
+    const restoreMenu = replaceMethod(Menu, "findOne", async () => null);
+    const template = ["SATURDAY", "FRIDAY", "THURSDAY", "WEDNESDAY", "TUESDAY", "MONDAY", "SUNDAY"]
+        .map((dayOfWeek) => ({ dayOfWeek, meals: { breakfast: { items: [`${dayOfWeek} breakfast`] } } }));
+    const restoreWeekly = replaceMethod(WeeklyMenu, "findOne", async () => ({ days: template }));
+    t.after(() => { restoreMenu(); restoreWeekly(); });
+
+    const dates = ["2026-11-01", "2026-11-02", "2026-11-03", "2026-11-04", "2026-11-05", "2026-11-06", "2026-11-07"];
+    const labels = ["SUNDAY", "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY"];
+    for (let index = 0; index < dates.length; index += 1) {
+        const menu = await getMenuForDate(dates[index]);
+        assert.equal(menu.dayOfWeek, labels[index]);
+        assert.deepEqual(menu.meals.breakfast.items, [`${labels[index]} breakfast`]);
+        assert.equal(menu.source, "WEEKLY");
+    }
+});
+
+test("date-specific menu overrides the recurring menu only for that date", async (t) => {
+    const override = { date: normalizeMenuDate("2026-11-07"), meals: { breakfast: { items: ["Special Idli"] } }, toObject() { return { date: this.date, meals: this.meals, _id: "override-id" }; } };
+    const restoreMenu = replaceMethod(Menu, "findOne", async () => override);
+    const restoreWeekly = replaceMethod(WeeklyMenu, "findOne", async () => { throw new Error("Weekly menu must not override a date-specific menu"); });
+    t.after(() => { restoreMenu(); restoreWeekly(); });
+
+    const menu = await getMenuForDate("2026-11-07");
+    assert.equal(menu.dayOfWeek, "SATURDAY");
+    assert.equal(menu.recurring, false);
+    assert.equal(menu.source, "DATE_SPECIFIC");
+    assert.equal(menu._id, "override-id");
+    assert.deepEqual(menu.meals.breakfast.items, ["Special Idli"]);
+});
+
+test("today resolver follows IST midnight and returns an empty 404 when both sources are absent", async (t) => {
+    const observedDates = [];
+    const restoreMenu = replaceMethod(Menu, "findOne", async ({ date }) => { observedDates.push(date.toISOString().slice(0, 10)); return null; });
+    const restoreWeekly = replaceMethod(WeeklyMenu, "findOne", async () => ({ days: [
+        { dayOfWeek: "SUNDAY", meals: { breakfast: { items: ["Sunday meal"] } } },
+        { dayOfWeek: "SATURDAY", meals: { breakfast: { items: ["Saturday meal"] } } },
+    ] }));
+    t.after(() => { restoreMenu(); restoreWeekly(); });
+
+    const saturday = await getResolvedTodayMenu(new Date("2026-11-07T18:29:59.999Z"));
+    const sunday = await getResolvedTodayMenu(new Date("2026-11-07T18:30:00.000Z"));
+    assert.deepEqual(observedDates, ["2026-11-07", "2026-11-08"]);
+    assert.equal(saturday.dayOfWeek, "SATURDAY");
+    assert.deepEqual(saturday.meals.breakfast.items, ["Saturday meal"]);
+    assert.equal(sunday.dayOfWeek, "SUNDAY");
+    assert.deepEqual(sunday.meals.breakfast.items, ["Sunday meal"]);
+
+    const restoreEmpty = replaceMethod(WeeklyMenu, "findOne", async () => null);
+    t.after(restoreEmpty);
+    await assert.rejects(getMenuForDate("2026-11-07"), { statusCode: 404 });
 });
 
 test("upcoming queries include today, sort/paginate, and are shared for reads only", async (t) => {

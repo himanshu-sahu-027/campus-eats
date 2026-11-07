@@ -4,6 +4,12 @@ import { httpError } from "../utils/httpError.js";
 import { parseMenuPagination, queryMenuPage } from "../utils/menuPagination.js";
 import { normalizeMeals, validateAllowedKeys } from "../utils/menuValidation.js";
 import { validateObjectId } from "../utils/validation.js";
+import { getResolvedTodayMenu } from "./menuRead.service.js";
+
+/** Resolves today's override or recurring menu for manager display. */
+export async function getTodayMenu() {
+    return getResolvedTodayMenu();
+}
 
 /**
  * Validates date-range and pagination criteria for menu listing.

@@ -92,6 +92,12 @@ export async function getTodayMenu() {
     return response.data.data.menu;
 }
 
+/** Retrieves today's resolved date-specific override or weekly-template menu for a Manager. */
+export async function getManagerTodayMenu() {
+    const response = await api.get("/manager/menus/today");
+    return response.data.data.menu;
+}
+
 /**
  * Retrieves upcoming published menus for an authenticated student.
  *
@@ -103,4 +109,15 @@ export async function getTodayMenu() {
 export async function getStudentUpcomingMenus(params = {}) {
     const response = await api.get("/student/menus/upcoming", { params });
     return response.data.data;
+}
+
+export async function getWeeklyMenu(role = "manager") {
+    const namespace = role === "student" ? "/student/menus" : "/manager/menus";
+    const response = await api.get(`${namespace}/weekly`);
+    return response.data.data.weeklyMenu;
+}
+
+export async function saveWeeklyMenu(days) {
+    const response = await api.put("/manager/menus/weekly", { days });
+    return response.data.data.weeklyMenu;
 }

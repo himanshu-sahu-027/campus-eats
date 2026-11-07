@@ -36,19 +36,19 @@ export default function StudentLayout() {
                         <div><p className="text-sm font-bold text-slate-900">Campus Eats</p><p className="text-xs text-slate-400">Student portal</p></div>
                     </NavLink>
                     <nav className="order-3 flex w-full min-w-0 items-center gap-2 overflow-x-auto lg:order-2 lg:w-auto lg:flex-1 lg:justify-center">
-                        <NavLink to="/student/dashboard" className={({ isActive }) => `flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium ${isActive ? "bg-indigo-50 text-indigo-700" : "text-slate-500 hover:bg-slate-100"}`}>
+                        <NavLink to="/student/dashboard" className={({ isActive }) => `flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium ${isActive ? "bg-indigo-600 text-white" : "text-slate-500 hover:bg-slate-100"}`}>
                             <LayoutDashboard size={17} /> Dashboard
                         </NavLink>
-                        <NavLink to="/student/menu" className={({ isActive }) => `flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium ${isActive ? "bg-indigo-50 text-indigo-700" : "text-slate-500 hover:bg-slate-100"}`}>
+                        <NavLink to="/student/menu" className={({ isActive }) => `flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium ${isActive ? "bg-indigo-600 text-white" : "text-slate-500 hover:bg-slate-100"}`}>
                             <Utensils size={17} /> Mess menu
                         </NavLink>
-                        <NavLink to="/student/complaints" className={({ isActive }) => `flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium ${isActive ? "bg-indigo-50 text-indigo-700" : "text-slate-500 hover:bg-slate-100"}`}>
+                        <NavLink to="/student/complaints" className={({ isActive }) => `flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium ${isActive ? "bg-indigo-600 text-white" : "text-slate-500 hover:bg-slate-100"}`}>
                             <MessageSquareWarning size={17} /> Complaints
                         </NavLink>
-                        <NavLink to="/student/notices" className={({ isActive }) => `flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium ${isActive ? "bg-indigo-50 text-indigo-700" : "text-slate-500 hover:bg-slate-100"}`}>
+                        <NavLink to="/student/notices" className={({ isActive }) => `flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium ${isActive ? "bg-indigo-600 text-white" : "text-slate-500 hover:bg-slate-100"}`}>
                             <Bell size={17} /> Notices
                         </NavLink>
-                        <NavLink to="/student/fees" className={({ isActive }) => `flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium ${isActive ? "bg-indigo-50 text-indigo-700" : "text-slate-500 hover:bg-slate-100"}`}>
+                        <NavLink to="/student/fees" className={({ isActive }) => `flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium ${isActive ? "bg-indigo-600 text-white" : "text-slate-500 hover:bg-slate-100"}`}>
                             <CreditCard size={17} /> My fees
                         </NavLink>
                     </nav>

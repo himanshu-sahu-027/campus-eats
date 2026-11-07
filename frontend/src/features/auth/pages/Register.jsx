@@ -34,7 +34,9 @@ export default function Register() {
     }
 
     function updateField(event) {
-        setForm((current) => ({ ...current, [event.target.name]: event.target.value }));
+        const digits = event.target.value.replace(/\D/g, "");
+        const value = event.target.name === "phone" ? (digits.length > 10 ? "" : digits) : event.target.value;
+        setForm((current) => ({ ...current, [event.target.name]: value }));
     }
 
     async function handleSubmit(event) {
@@ -43,6 +45,10 @@ export default function Register() {
         setSuccess(false);
         if (Object.values(form).some((value) => !value.trim())) {
             setError("Complete all fields to submit your registration.");
+            return;
+        }
+        if (!/^\d{10}$/.test(form.phone)) {
+            setError("Phone number must contain exactly 10 digits.");
             return;
         }
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
@@ -117,6 +123,7 @@ export default function Register() {
                                     onChange={updateField}
                                     placeholder={field.placeholder}
                                     maxLength={field.name === "password" || field.name === "confirmPassword" ? 72 : undefined}
+                                    {...(field.name === "phone" ? { inputMode: "numeric", pattern: "[0-9]{10}", maxLength: 10, "aria-label": "Phone number (10 digits)" } : {})}
                                 />
                             </label>
                         ))}

@@ -3,6 +3,7 @@ import { Router } from "express";
 import asyncHandler from "../middlewares/asyncHandler.js";
 // Active-manager authentication middleware.
 import authenticateManager from "../middlewares/authenticateManager.js";
+import { read as readWeekly, write as writeWeekly } from "../controllers/weeklyMenu.controller.js";
 // HTTP route handlers.
 import {
     byDate,
@@ -11,11 +12,14 @@ import {
     remove,
     update,
     upcoming,
+    today,
 } from "../controllers/managerMenu.controller.js";
 
 /** Manager-only menu creation and management endpoints. */
 const router = Router();
 router.use(authenticateManager);
+router.get("/weekly", asyncHandler(readWeekly));
+router.put("/weekly", asyncHandler(writeWeekly));
 
 /**
  * @route POST /api/v1/manager/menus
@@ -36,6 +40,7 @@ router.get("/", asyncHandler(list));
  * @access Private (Manager)
  */
 router.get("/upcoming", asyncHandler(upcoming));
+router.get("/today", asyncHandler(today));
 /**
  * @route GET /api/v1/manager/menus/:date
  * @description Retrieve a menu by calendar date

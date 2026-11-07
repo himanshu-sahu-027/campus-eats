@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { CalendarCog, LoaderCircle } from "lucide-react";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import AuthNotice from "../../auth/components/AuthNotice.jsx";
 import MenuForm from "../components/MenuForm.jsx";
 import useMenus from "../hooks/useMenus.js";
@@ -12,6 +12,7 @@ import useMenus from "../hooks/useMenus.js";
  */
 export default function EditMenu() {
     const { date } = useParams();
+    const navigate = useNavigate();
     const { loadMenuByDate, updateMenu } = useMenus();
     const [menu, setMenu] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -41,6 +42,10 @@ export default function EditMenu() {
             const updated = await updateMenu(menu._id, payload);
             setMenu(updated);
             setSuccess("Menu updated successfully.");
+            const todayParts = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date());
+            const todayValues = Object.fromEntries(todayParts.map(({ type, value }) => [type, value]));
+            const today = `${todayValues.year}-${todayValues.month}-${todayValues.day}`;
+            if (date === today) navigate("/manager/menus", { replace: true, state: { menuUpdated: true } });
         } catch (requestError) {
             setError(requestError.message);
         } finally {

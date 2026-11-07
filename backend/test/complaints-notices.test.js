@@ -150,12 +150,15 @@ test("manager complaint search matches complaint text and safe joined student fi
 
 test("manager status updates set resolution timestamp and reject unsupported fields", async (t) => {
     const updates = [];
+    let existing = { status: "PENDING", resolvedAt: null };
     const restoreFindAndUpdate = replaceMethod(Complaint, "findByIdAndUpdate", async (_id, update) => {
         updates.push(update.$set);
+        existing = { ...existing, ...update.$set };
         return { _id: COMPLAINT_ID };
     });
     const restoreFindById = replaceMethod(Complaint, "findById", () => ({
-        populate: async () => ({ _id: COMPLAINT_ID, status: updates.at(-1).status }),
+        then(resolve, reject) { return Promise.resolve(existing).then(resolve, reject); },
+        populate: async () => ({ _id: COMPLAINT_ID, ...existing }),
     }));
     t.after(restoreFindAndUpdate);
     t.after(restoreFindById);
@@ -163,8 +166,13 @@ test("manager status updates set resolution timestamp and reject unsupported fie
     await updateComplaintStatus(COMPLAINT_ID, { status: "RESOLVED", adminRemark: "Fixed." });
     assert.ok(updates[0].resolvedAt instanceof Date);
     assert.equal(updates[0].adminRemark, "Fixed.");
+    const firstResolution = existing.resolvedAt;
+    await updateComplaintStatus(COMPLAINT_ID, { status: "RESOLVED", adminRemark: "Still fixed." });
+    assert.equal(updates[1].resolvedAt, firstResolution);
     await updateComplaintStatus(COMPLAINT_ID, { status: "IN_PROGRESS" });
-    assert.equal(updates[1].resolvedAt, null);
+    assert.equal(updates[2].resolvedAt, null);
+    await updateComplaintStatus(COMPLAINT_ID, { status: "PENDING" });
+    assert.equal(Object.hasOwn(updates[3], "resolvedAt"), false);
     await assert.rejects(
         updateComplaintStatus(COMPLAINT_ID, { status: "RESOLVED", studentId: OTHER_ID }),
         { statusCode: 400 },

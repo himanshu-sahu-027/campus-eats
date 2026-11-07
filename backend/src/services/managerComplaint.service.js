@@ -162,10 +162,18 @@ export async function updateComplaintStatus(complaintId, input) {
         throw httpError(400, "A valid complaint status is required");
     }
 
-    const update = {
-        status: input.status,
-        resolvedAt: input.status === "RESOLVED" ? new Date() : null,
-    };
+    // Keep the original resolution time when an already-resolved complaint is
+    // edited again. Read first so a remark-only edit also preserves it.
+    const current = await Complaint.findById(id);
+    if (!current) throw httpError(404, "Complaint not found");
+    const update = { status: input.status };
+    if (input.status === "RESOLVED") {
+        update.resolvedAt = current.status === "RESOLVED" && current.resolvedAt
+            ? current.resolvedAt
+            : new Date();
+    } else if (current.status === "RESOLVED") {
+        update.resolvedAt = null;
+    }
     if (Object.hasOwn(input, "adminRemark")) {
         if (typeof input.adminRemark !== "string" || input.adminRemark.trim().length > 2000) {
             throw httpError(400, "Admin remark must be a string of 2000 characters or fewer");

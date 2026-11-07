@@ -61,7 +61,8 @@ export default function useComplaints() {
         setSuccess("");
         try {
             const complaint = await updateStatusRequest(complaintId, data);
-            setSuccess("Complaint status updated successfully.");
+            setComplaints((current) => current.map((item) => item._id === complaintId ? complaint : item));
+            setSuccess("Complaint updated successfully.");
             return complaint;
         } catch (requestError) {
             setError(requestError.message);

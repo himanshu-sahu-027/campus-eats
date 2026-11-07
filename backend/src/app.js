@@ -17,6 +17,8 @@ import studentFeeRoutes from "./routes/studentFee.routes.js";
 import paymentRoutes from "./routes/payment.routes.js";
 import managerDashboardRoutes from "./routes/managerDashboard.routes.js";
 import studentDashboardRoutes from "./routes/studentDashboard.routes.js";
+import adminAuthRoutes from "./routes/adminAuth.routes.js";
+import adminRoutes from "./routes/admin.routes.js";
 import errorHandler from "./middlewares/errorHandler.js";
 import protectCrossSiteRequests from "./middlewares/protectCrossSiteRequests.js";
 import { httpError } from "./utils/httpError.js";
@@ -41,6 +43,8 @@ app.get("/health", (req, res) => {
 
 app.use("/api/v1/studentAuth", studentAuthRoutes);
 app.use("/api/v1/managerAuth", managerAuthRoutes);
+app.use("/api/v1/adminAuth", adminAuthRoutes);
+app.use("/api/v1/admin", adminRoutes);
 app.use("/api/v1/student/complaints", studentComplaintRoutes);
 app.use("/api/v1/manager/complaints", managerComplaintRoutes);
 app.use("/api/v1/student/notices", studentNoticeRoutes);

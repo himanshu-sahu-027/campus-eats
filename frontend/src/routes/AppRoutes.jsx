@@ -26,6 +26,12 @@ import ManagerLayout from "../layouts/ManagerLayout.jsx";
 import StudentLayout from "../layouts/StudentLayout.jsx";
 import ProtectedRoute from "./ProtectedRoute.jsx";
 import { useAuth } from "../features/auth/hooks/useAuth.js";
+import AdminLogin from "../features/admin/pages/AdminLogin.jsx";
+import AdminDashboard from "../features/admin/pages/AdminDashboard.jsx";
+import ManagerManagement from "../features/admin/pages/ManagerManagement.jsx";
+import AdminGate from "../features/admin/components/AdminGate.jsx";
+import AdminLayout from "../features/admin/components/AdminLayout.jsx";
+import CreateManager from "../features/admin/pages/CreateManager.jsx";
 
 function HomeRedirect() {
     const { role, loading } = useAuth();
@@ -47,6 +53,8 @@ export default function AppRoutes() {
             <Route path="/login" element={<Navigate to="/login/student" replace />} />
             <Route path="/login/:accountType" element={<Login />} />
             <Route path="/register" element={<Register />} />
+            <Route path="/admin/login" element={<AdminLogin />} />
+            <Route element={<AdminGate />}><Route path="/admin" element={<AdminLayout />}><Route index element={<Navigate to="dashboard" replace/>}/><Route path="dashboard" element={<AdminDashboard/>}/><Route path="managers" element={<ManagerManagement/>}/><Route path="managers/create" element={<CreateManager/>}/></Route></Route>
 
             <Route element={<ProtectedRoute role="MANAGER" />}>
                 <Route path="/manager" element={<ManagerLayout />}>

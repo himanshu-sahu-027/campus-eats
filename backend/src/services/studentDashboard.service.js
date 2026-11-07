@@ -1,8 +1,7 @@
 import Complaint from "../models/complaint.model.js";
 import Fee from "../models/fee.model.js";
-import Menu from "../models/menu.model.js";
+import { getResolvedTodayMenu } from "./menuRead.service.js";
 import Student from "../models/student.model.js";
-import { getCurrentISTDate, normalizeMenuDate } from "../utils/dateUtils.js";
 import { httpError } from "../utils/httpError.js";
 import { validateObjectId } from "../utils/validation.js";
 
@@ -23,12 +22,14 @@ export async function getStudentDashboard(studentId) {
     const student = await Student.findById(ownerId).select("fullName rollNumber status");
     if (!student || student.status !== "APPROVED") throw httpError(404, "Student not found");
 
-    // Reuse the same Indian calendar normalization as the student menu APIs.
-    const today = normalizeMenuDate(getCurrentISTDate());
+    // Use the same date-specific override and recurring-weekly fallback as the
+    // student menu endpoint. A missing menu is a normal dashboard empty state.
+    const todayMenuRequest = getResolvedTodayMenu().catch((error) => {
+        if (error.statusCode === 404) return null;
+        throw error;
+    });
     const [todayMenu, [feeTotals = {}], complaints] = await Promise.all([
-        Menu.findOne({ date: today })
-            .select("-createdBy -updatedBy")
-            .lean(),
+        todayMenuRequest,
         // Fee summary is the single financial source to avoid summing payments twice.
         Fee.aggregate([
             { $match: { studentId: student._id } },

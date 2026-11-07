@@ -4,8 +4,19 @@ import {
     getAllMenus,
     getMenuByDate,
     getUpcomingMenus,
+    getTodayMenu,
     updateMenu,
 } from "../services/managerMenu.service.js";
+
+/** Returns today's date-specific override or recurring weekday menu. */
+export async function today(req, res) {
+    const menu = await getTodayMenu();
+    return res.status(200).json({
+        success: true,
+        message: "Today's menu retrieved successfully",
+        data: { menu },
+    });
+}
 
 /**
  * Creates a daily menu for the authenticated manager.

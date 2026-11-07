@@ -65,3 +65,5 @@ deployment, actual cross-origin browser sessions, live Razorpay test
 credentials, or a full browser end-to-end suite. Those checks require explicit
 test infrastructure and credentials. Postman testing and live Razorpay
 transactions were intentionally skipped.
+
+New functionality includes strict phone validation, recurring weekly menu APIs and views, and isolated Admin authentication and manager management. Mocked tests do not replace MongoDB and browser integration checks.

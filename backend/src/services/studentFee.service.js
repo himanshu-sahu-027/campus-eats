@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import Fee from "../models/fee.model.js";
 import Payment from "../models/payment.model.js";
 import { httpError } from "../utils/httpError.js";
@@ -19,6 +20,9 @@ import { refreshOverdueFees } from "./managerFee.service.js";
 export async function getMyFees(studentId, query) {
     await refreshOverdueFees();
     const id = validateFeeObjectId(studentId, "student ID");
+    // Mongoose casts IDs for find(), but aggregation pipelines are passed to
+    // MongoDB as-is. Keep the summary $match typed as an ObjectId.
+    const ownerId = new mongoose.Types.ObjectId(id);
     const page = parsePositiveInteger(query.page, 1, "Page", 1_000_000);
     const limit = parsePositiveInteger(query.limit, 10, "Limit", 100);
     const criteria = { studentId: id };
@@ -33,7 +37,7 @@ export async function getMyFees(studentId, query) {
             .skip(paginationSkip(page, limit)).limit(limit),
         Fee.countDocuments(criteria),
         Fee.aggregate([
-            { $match: { studentId: id } },
+            { $match: { studentId: ownerId } },
             {
                 $group: {
                     _id: null,

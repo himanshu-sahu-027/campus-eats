@@ -31,7 +31,6 @@ export default function ManagerComplaints() {
         });
         if (updated) {
             setDrafts((current) => { const next = { ...current }; delete next[complaint._id]; return next; });
-            await loadComplaints({ ...filters, page, limit: 10 }, "manager");
         }
     }
 

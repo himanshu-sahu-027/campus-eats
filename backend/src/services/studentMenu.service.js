@@ -1,7 +1,6 @@
-import Menu from "../models/menu.model.js";
 import { getCurrentISTDate, normalizeMenuDate } from "../utils/dateUtils.js";
-import { httpError } from "../utils/httpError.js";
 import { parseMenuPagination, queryMenuPage } from "../utils/menuPagination.js";
+import { getMenuForDate, getResolvedTodayMenu } from "./menuRead.service.js";
 
 /**
  * Retrieves the published menu for today's Indian calendar date.
@@ -12,10 +11,7 @@ import { parseMenuPagination, queryMenuPage } from "../utils/menuPagination.js";
  * @description Retrieves the published menu for today's Indian calendar date.
  */
 export async function getTodayMenu() {
-    const date = normalizeMenuDate(getCurrentISTDate());
-    const menu = await Menu.findOne({ date });
-    if (!menu) throw httpError(404, "No menu has been published for today yet");
-    return menu;
+    return getResolvedTodayMenu();
 }
 
 /**
@@ -28,10 +24,7 @@ export async function getTodayMenu() {
  * @description Retrieves a published menu for a selected Indian calendar date.
  */
 export async function getMenuByDate(dateString) {
-    const date = normalizeMenuDate(dateString);
-    const menu = await Menu.findOne({ date });
-    if (!menu) throw httpError(404, "No menu has been published for this date");
-    return menu;
+    return getMenuForDate(dateString);
 }
 
 /**

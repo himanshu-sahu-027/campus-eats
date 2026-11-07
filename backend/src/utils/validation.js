@@ -1,7 +1,6 @@
 import { httpError } from "./httpError.js";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const PHONE_PATTERN = /^\+?[0-9\s()-]+$/;
 
 /**
  * Ensures an incoming request payload is a JSON object.
@@ -60,21 +59,19 @@ export function normalizeEmail(value) {
 }
 
 /**
- * Validates a phone number containing 7-15 digits and allowed separators.
+ * Validates an exact ten-digit phone number.
  *
  * @param {*} value - User-supplied phone number.
  * @returns {string} Trimmed phone number.
  * @throws {Error} 400 for invalid phone input.
  * @name normalizePhone
- * @description Validates a phone number containing 7-15 digits and allowed separators.
+ * @description Validates an exact ten-digit phone number.
  */
 export function normalizePhone(value) {
-    const phone = requiredString(value, "Phone", { maxLength: 20 });
-    const digitCount = phone.replace(/\D/g, "").length;
-    if (!PHONE_PATTERN.test(phone) || digitCount < 7 || digitCount > 15) {
-        throw httpError(400, "A valid phone number is required");
+    if (typeof value !== "string" || !/^\d{10}$/.test(value)) {
+        throw httpError(400, "Phone number must contain exactly 10 digits.");
     }
-    return phone;
+    return value;
 }
 
 /**
