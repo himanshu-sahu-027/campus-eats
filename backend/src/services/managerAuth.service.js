@@ -28,7 +28,7 @@ export async function loginManager(input) {
     }
 
     const token = jwt.sign(
-        { sub: manager._id.toString(), role: "MANAGER" },
+        { sub: manager._id.toString(), role: "MANAGER", tokenVersion: manager.tokenVersion || 0 },
         envConfig.JWT_SECRET,
         { expiresIn: "1d", algorithm: "HS256", issuer: "mess-management-api" },
     );

@@ -8,9 +8,11 @@ import Student from "../src/models/student.model.js";
 import StudentProfile from "../src/models/studentProfile.model.js";
 import { envConfig } from "../src/config/env.js";
 import { loginManager } from "../src/services/managerAuth.service.js";
+import { resetManagerPassword, updateManager } from "../src/services/admin.service.js";
 import {
     createStudent,
     listStudents,
+    resetStudentPassword,
     reviewStudent,
 } from "../src/services/managerStudent.service.js";
 import {
@@ -149,6 +151,79 @@ test("manager login rejects inactive accounts after checking the password", asyn
         loginManager({ email: manager.email, password: PASSWORD }),
         { statusCode: 403, message: "This account cannot log in" },
     );
+});
+
+test("Manager resets only a Student password, hashes it, and invalidates the previous login", async (t) => {
+    const originalPasswordHash = await bcrypt.hash(PASSWORD, 4);
+    const student = makeStudent({ password: originalPasswordHash, tokenVersion: 0, profile: { roomNumber: "A-101" } });
+    const profileSnapshot = { ...student, profile: { ...student.profile } };
+    const resetPassword = "NewSecurePassword123";
+    const restores = [
+        replaceMethod(Student, "exists", async ({ _id }) => _id === STUDENT_ID),
+        replaceMethod(Student, "updateOne", async (criteria, update) => {
+            assert.deepEqual(criteria, { _id: STUDENT_ID });
+            student.password = update.$set.password;
+            student.tokenVersion += update.$inc.tokenVersion;
+            return { matchedCount: 1 };
+        }),
+        replaceMethod(Student, "findOne", () => ({ select: async () => student })),
+    ];
+    t.after(() => restores.forEach((restore) => restore()));
+
+    await resetStudentPassword(STUDENT_ID, { newPassword: resetPassword, confirmPassword: resetPassword });
+    assert.notEqual(student.password, resetPassword);
+    assert.equal(await bcrypt.compare(resetPassword, student.password), true);
+    assert.equal(student.tokenVersion, 1);
+    for (const field of ["fullName", "email", "phone", "rollNumber", "status", "profile"]) {
+        assert.deepEqual(student[field], profileSnapshot[field], `${field} must not change during password reset`);
+    }
+    await assert.rejects(loginStudent({ email: student.email, password: PASSWORD }), { statusCode: 401 });
+    const loggedIn = await loginStudent({ email: student.email, password: resetPassword });
+    assert.equal(jwt.verify(loggedIn.token, envConfig.JWT_SECRET).tokenVersion, 1);
+
+    await assert.rejects(resetStudentPassword("invalid-id", { newPassword: resetPassword, confirmPassword: resetPassword }), { statusCode: 400 });
+    await assert.rejects(resetStudentPassword(STUDENT_ID, { newPassword: "short", confirmPassword: "short" }), { statusCode: 400 });
+    await assert.rejects(resetStudentPassword(STUDENT_ID, { newPassword: "", confirmPassword: "" }), { statusCode: 400 });
+    await assert.rejects(resetStudentPassword(STUDENT_ID, { newPassword: resetPassword, confirmPassword: "different" }), { statusCode: 400 });
+    await assert.rejects(resetStudentPassword(STUDENT_ID, { newPassword: resetPassword }), { statusCode: 400 });
+    const restoreMissing = replaceMethod(Student, "exists", async () => false);
+    await assert.rejects(resetStudentPassword(STUDENT_ID, { newPassword: resetPassword, confirmPassword: resetPassword }), { statusCode: 404 });
+    restoreMissing();
+});
+
+test("Admin resets only a Manager password and the Manager can log in with the new password", async (t) => {
+    const originalPasswordHash = await bcrypt.hash(PASSWORD, 4);
+    const manager = {
+        _id: { toString: () => MANAGER_ID }, fullName: "Manager One", email: "manager@example.test",
+        phone: "9876543210", status: "ACTIVE", password: originalPasswordHash, tokenVersion: 0,
+    };
+    const profileSnapshot = { fullName: manager.fullName, email: manager.email, phone: manager.phone, status: manager.status };
+    const resetPassword = "ManagerSecurePassword123";
+    const restores = [
+        replaceMethod(Manager, "exists", async () => true),
+        replaceMethod(Manager, "updateOne", async (_criteria, update) => {
+            manager.password = update.$set.password;
+            manager.tokenVersion += update.$inc.tokenVersion;
+            return { matchedCount: 1 };
+        }),
+        replaceMethod(Manager, "findOne", () => ({ select: async () => manager })),
+    ];
+    t.after(() => restores.forEach((restore) => restore()));
+
+    await resetManagerPassword(MANAGER_ID, { newPassword: resetPassword, confirmPassword: resetPassword });
+    assert.equal(await bcrypt.compare(resetPassword, manager.password), true);
+    assert.equal(manager.tokenVersion, 1);
+    for (const [field, value] of Object.entries(profileSnapshot)) assert.equal(manager[field], value);
+    await assert.rejects(loginManager({ email: manager.email, password: PASSWORD }), { statusCode: 401 });
+    const loggedIn = await loginManager({ email: manager.email, password: resetPassword });
+    assert.equal(jwt.verify(loggedIn.token, envConfig.JWT_SECRET).tokenVersion, 1);
+
+    await assert.rejects(resetManagerPassword("invalid-id", { newPassword: resetPassword, confirmPassword: resetPassword }), { statusCode: 400 });
+    await assert.rejects(resetManagerPassword(MANAGER_ID, { newPassword: resetPassword, confirmPassword: "different" }), { statusCode: 400 });
+    await assert.rejects(updateManager(MANAGER_ID, { password: resetPassword }), { statusCode: 400 });
+    const restoreMissing = replaceMethod(Manager, "exists", async () => false);
+    await assert.rejects(resetManagerPassword(MANAGER_ID, { newPassword: resetPassword, confirmPassword: resetPassword }), { statusCode: 404 });
+    restoreMissing();
 });
 
 test("manager student search escapes regex input and applies bounded pagination", async (t) => {

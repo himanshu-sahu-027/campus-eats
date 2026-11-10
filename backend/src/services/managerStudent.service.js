@@ -3,6 +3,7 @@ import Manager from "../models/manager.model.js";
 import Student from "../models/student.model.js";
 import StudentProfile from "../models/studentProfile.model.js";
 import { createStudentWithProfile } from "./studentCreation.service.js";
+import { resetAccountPassword } from "./accountPasswordReset.service.js";
 import { safeAccount } from "../utils/account.js";
 import { httpError } from "../utils/httpError.js";
 import {
@@ -16,6 +17,17 @@ import {
 
 const PASSWORD_ROUNDS = 12;
 const STUDENT_STATUSES = ["PENDING", "APPROVED", "REJECTED", "INACTIVE"];
+
+/**
+ * Resets only the target Student's password and invalidates their prior JWTs.
+ *
+ * @param {string} studentId - Student ObjectId from the manager route.
+ * @param {Object} input - New password and confirmation.
+ * @returns {Promise<void>} Resolves after the credential change persists.
+ */
+export async function resetStudentPassword(studentId, input) {
+    return resetAccountPassword(Student, studentId, input, "Student");
+}
 const REGISTRATION_METHODS = ["SELF_REGISTERED", "CREATED_BY_MANAGER"];
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 10;

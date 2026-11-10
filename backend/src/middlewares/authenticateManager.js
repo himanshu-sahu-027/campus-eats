@@ -33,7 +33,8 @@ export default async function authenticateManager(req, res, next) {
         }
 
         const manager = await Manager.findById(payload.sub);
-        if (!manager || manager.status !== "ACTIVE") {
+        if (!manager || manager.status !== "ACTIVE" ||
+            (payload.tokenVersion ?? 0) !== (manager.tokenVersion ?? 0)) {
             return res.status(401).json({ success: false, message: "Authentication required" });
         }
 

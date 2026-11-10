@@ -4,6 +4,7 @@ import {
     deactivateStudent as requestDeactivateStudent,
     getStudentById,
     getStudents,
+    resetStudentPassword as requestResetStudentPassword,
     updateStudent as requestUpdateStudent,
 } from "../services/student.service.js";
 
@@ -133,6 +134,7 @@ export default function useStudents({ autoFetch = true } = {}) {
         getStudent: getStudentById,
         addStudent: requestAddStudent,
         updateStudent: requestUpdateStudent,
+        resetStudentPassword: requestResetStudentPassword,
         deactivateStudent: deactivate,
     };
 }

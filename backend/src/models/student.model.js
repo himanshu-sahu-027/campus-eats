@@ -11,6 +11,7 @@ import mongoose from "mongoose";
  * @property {string} rollNumber - Unique uppercase student roll number.
  * @property {string} phone - Contact number.
  * @property {string} password - Hashed password, excluded by default.
+ * @property {number} tokenVersion - Incremented to revoke previously signed JWTs.
  * @property {"PENDING"|"APPROVED"|"REJECTED"|"INACTIVE"} status - Account status.
  * @property {"SELF_REGISTERED"|"CREATED_BY_MANAGER"} registrationMethod - Account source.
  * @property {mongoose.Types.ObjectId|null} createdBy - Creating Manager reference.
@@ -55,6 +56,8 @@ const studentSchema = new mongoose.Schema(
             required: true,
             select: false,
         },
+        /** Incremented by administrative password resets to revoke old JWTs. */
+        tokenVersion: { type: Number, required: true, default: 0, min: 0 },
         status: {
             type: String,
             enum: ["PENDING", "APPROVED", "REJECTED", "INACTIVE"],

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
-import { LoaderCircle, Pencil } from "lucide-react";
+import { KeyRound, LoaderCircle, Pencil } from "lucide-react";
 import { useParams } from "react-router-dom";
+import PasswordResetModal from "../../../components/PasswordResetModal.jsx";
 import AuthNotice from "../../auth/components/AuthNotice.jsx";
 import StudentForm from "../components/StudentForm.jsx";
 import useStudents from "../hooks/useStudents.js";
@@ -12,12 +13,13 @@ import useStudents from "../hooks/useStudents.js";
  */
 export default function EditStudent() {
     const { studentId } = useParams();
-    const { getStudent, updateStudent } = useStudents({ autoFetch: false });
+    const { getStudent, updateStudent, resetStudentPassword } = useStudents({ autoFetch: false });
     const [student, setStudent] = useState(null);
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState("");
     const [success, setSuccess] = useState("");
+    const [resetOpen, setResetOpen] = useState(false);
 
     useEffect(() => {
         let active = true;
@@ -74,6 +76,10 @@ export default function EditStudent() {
                 error={error}
                 success={success}
             />
+            <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6" aria-labelledby="student-security-title">
+                <div className="flex flex-wrap items-center justify-between gap-4"><div className="flex items-start gap-3"><span className="grid size-10 shrink-0 place-items-center rounded-xl bg-indigo-50 text-indigo-700"><KeyRound size={19}/></span><div><h2 id="student-security-title" className="font-semibold text-slate-900">Account Security</h2><p className="mt-1 text-sm text-slate-500">Reset this student's password if they have forgotten their login credentials.</p></div></div><button type="button" onClick={() => setResetOpen(true)} className="rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700">Reset Password</button></div>
+            </section>
+            <PasswordResetModal open={resetOpen} entityLabel="Student" onClose={() => setResetOpen(false)} onSubmit={(passwords) => resetStudentPassword(studentId, passwords)} onSuccess={() => { setResetOpen(false); setSuccess("Student password updated successfully."); }} />
         </section>
     );
 }

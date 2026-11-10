@@ -54,6 +54,12 @@ export async function updateStudent(studentId, updates) {
     return response.data.data.student;
 }
 
+/** Resets a Student password through the manager-only security endpoint. */
+export async function resetStudentPassword(studentId, passwords) {
+    const response = await api.patch(`/manager/students/${studentId}/password`, passwords);
+    return response.data;
+}
+
 /**
  * Deactivates a student without deleting the account.
  *

@@ -17,8 +17,10 @@ import {
     getStudentById,
     getStudents,
     rejectStudent,
+    resetStudentPassword,
     updateStudent,
 } from "../src/features/students/services/student.service.js";
+import { resetManagerPassword } from "../src/features/admin/services/admin.service.js";
 import {
     createMenu,
     deleteMenu,
@@ -121,6 +123,7 @@ const studentServiceCalls = [
     ["get student", "get", `/manager/students/${studentId}`, () => getStudentById(studentId)],
     ["create student", "post", "/manager/students", () => addStudent(student), student],
     ["update student", "patch", `/manager/students/${studentId}`, () => updateStudent(studentId, { phone: student.phone }), { phone: student.phone }],
+    ["reset student password", "patch", `/manager/students/${studentId}/password`, () => resetStudentPassword(studentId, { newPassword: "newpassword123", confirmPassword: "newpassword123" }), { newPassword: "newpassword123", confirmPassword: "newpassword123" }],
     ["deactivate student", "patch", `/manager/students/${studentId}/deactivate`, () => deactivateStudent(studentId)],
     ["list pending students", "get", "/manager/students/pending", getPendingStudents],
     ["approve student", "patch", `/manager/students/${studentId}/approve`, () => approveStudent(studentId)],
@@ -181,6 +184,7 @@ const apiServiceCalls = [
     ["student logout", "post", "/studentAuth/logout", logoutStudent],
     ["student registration", "post", "/studentAuth/register", () => registerStudent(student), student],
     ...studentServiceCalls,
+    ["reset manager password", "patch", "/admin/managers/manager-1/password", () => resetManagerPassword("manager-1", { newPassword: "newpassword123", confirmPassword: "newpassword123" }), { newPassword: "newpassword123", confirmPassword: "newpassword123" }],
     ...menuServiceCalls,
     ...feeServiceCalls,
     ["create Razorpay order", "post", "/student/payments/razorpay/order", () => createRazorpayOrder(feeId), { feeId }],
@@ -210,8 +214,8 @@ beforeEach(() => {
 });
 
 describe("frontend API service contracts", () => {
-    it("covers every frontend call for the 56 versioned backend endpoints", () => {
-        expect(apiServiceCalls).toHaveLength(56);
+    it("covers every frontend call for the 58 versioned backend endpoints", () => {
+        expect(apiServiceCalls).toHaveLength(58);
     });
 
     it.each(apiServiceCalls)("%s uses %s %s with cookie credentials", async (_name, method, path, invoke, body) => {

@@ -8,6 +8,7 @@ import mongoose from "mongoose";
  * @property {string} email - Unique, lowercase manager email.
  * @property {string} phone - Contact number.
  * @property {string} password - Hashed password; excluded from normal queries.
+ * @property {number} tokenVersion - Incremented to revoke previously signed JWTs.
  * @property {"ACTIVE"|"INACTIVE"} status - Manager access status.
  * @property {Date} createdAt - Timestamp added by Mongoose.
  * @property {Date} updatedAt - Timestamp added by Mongoose.
@@ -40,6 +41,8 @@ const managerSchema = new mongoose.Schema(
             required: true,
             select: false,
         },
+        /** Incremented by administrative password resets to revoke old JWTs. */
+        tokenVersion: { type: Number, required: true, default: 0, min: 0 },
         status: {
             type: String,
             enum: ["ACTIVE", "INACTIVE"],

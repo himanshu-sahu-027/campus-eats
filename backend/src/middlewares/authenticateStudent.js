@@ -35,7 +35,8 @@ export default async function authenticateStudent(req, res, next) {
         }
 
         const student = await Student.findById(payload.sub);
-        if (!student || student.status !== "APPROVED") {
+        if (!student || student.status !== "APPROVED" ||
+            (payload.tokenVersion ?? 0) !== (student.tokenVersion ?? 0)) {
             return res.status(401).json({ success: false, message: "Authentication required" });
         }
 

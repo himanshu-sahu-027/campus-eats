@@ -5,6 +5,7 @@ import {
     listStudents,
     listPendingStudents,
     reviewStudent,
+    resetStudentPassword,
     updateStudent,
 } from "../services/managerStudent.service.js";
 import { requireObjectBody } from "../utils/validation.js";
@@ -89,6 +90,21 @@ export async function update(req, res) {
         message: "Student updated successfully",
         data: { student },
     });
+}
+
+/**
+ * Resets a Student password without changing profile data and revokes old tokens.
+ *
+ * @param {import("express").Request} req - Manager session, Student ID, and password fields.
+ * @param {import("express").Response} res - Express response.
+ * @returns {Promise<import("express").Response>} Password reset confirmation only.
+ * @route PATCH /api/v1/manager/students/:studentId/password
+ * @access Private (Manager)
+ */
+export async function resetPassword(req, res) {
+    requireObjectBody(req.body);
+    await resetStudentPassword(req.params.studentId, req.body);
+    return res.status(200).json({ success: true, message: "Student password updated successfully." });
 }
 
 /**

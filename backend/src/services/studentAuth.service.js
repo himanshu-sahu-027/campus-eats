@@ -28,7 +28,7 @@ const PASSWORD_ROUNDS = 12;
  */
 function createStudentToken(student) {
     return jwt.sign(
-        { sub: student._id.toString(), role: "STUDENT" },
+        { sub: student._id.toString(), role: "STUDENT", tokenVersion: student.tokenVersion || 0 },
         envConfig.JWT_SECRET,
         { expiresIn: "1d", algorithm: "HS256", issuer: "mess-management-api" },
     );

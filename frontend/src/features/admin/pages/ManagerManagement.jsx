@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
+import { KeyRound } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
-import { deactivateManager, managers, updateManager } from "../services/admin.service.js";
+import PasswordResetModal from "../../../components/PasswordResetModal.jsx";
+import { deactivateManager, managers, resetManagerPassword, updateManager } from "../services/admin.service.js";
 
 /** Search, inspect, update, and deactivate safe Manager account records. */
 export default function ManagerManagement() {
@@ -10,9 +12,11 @@ export default function ManagerManagement() {
     const [statusFilter, setStatusFilter] = useState("ALL");
     const [loading, setLoading] = useState(true);
     const [editing, setEditing] = useState(null);
-    const [form, setForm] = useState({ fullName: "", email: "", phone: "", password: "" });
+    const [form, setForm] = useState({ fullName: "", email: "", phone: "" });
     const [error, setError] = useState("");
     const [busy, setBusy] = useState(false);
+    const [resetOpen, setResetOpen] = useState(false);
+    const [resetSuccess, setResetSuccess] = useState("");
 
     const refresh = useCallback(async () => {
         setLoading(true);
@@ -30,22 +34,23 @@ export default function ManagerManagement() {
 
     function startEdit(manager) {
         setEditing(manager);
-        setForm({ fullName: manager.fullName, email: manager.email, phone: manager.phone, password: "" });
+        setResetOpen(false);
+        setForm({ fullName: manager.fullName, email: manager.email, phone: manager.phone });
         setError("");
+        setResetSuccess("");
     }
 
     async function submit(event) {
         event.preventDefault();
-        if (!form.fullName.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email) || !/^\d{10}$/.test(form.phone) || (form.password && form.password.length < 8)) {
-            setError("Enter a name, valid email, 10-digit phone number, and a password of at least 8 characters if changing it.");
+        if (!form.fullName.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email) || !/^\d{10}$/.test(form.phone)) {
+            setError("Enter a name, valid email, and 10-digit phone number.");
             return;
         }
         setBusy(true); setError("");
         try {
             const update = { fullName: form.fullName.trim(), email: form.email.trim(), phone: form.phone };
-            if (form.password) update.password = form.password;
             await updateManager(editing.id, update);
-            setEditing(null); setForm({ fullName: "", email: "", phone: "", password: "" });
+            setEditing(null); setForm({ fullName: "", email: "", phone: "" });
             await refresh();
         } catch (requestError) { setError(requestError.message); }
         finally { setBusy(false); }
@@ -63,7 +68,8 @@ export default function ManagerManagement() {
         {location.state?.notice && <p role="status" className="mt-3 text-sm font-medium text-emerald-700">{location.state.notice}</p>}
         {error && <p role="alert" className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</p>}
         <div className="mt-5 flex flex-wrap gap-2"><input aria-label="Search managers" placeholder="Search name, email, or phone" value={search} onChange={(event) => { setLoading(true); setSearch(event.target.value); }} className="h-10 min-w-56 flex-1 rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"/><select aria-label="Filter by status" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm"><option value="ALL">All statuses</option><option value="ACTIVE">Active</option><option value="INACTIVE">Inactive</option></select><button type="button" onClick={refresh} className="h-10 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50">Refresh</button></div>
-        {editing && <form onSubmit={submit} className="mt-5 grid gap-3 rounded-2xl border bg-white p-5 sm:grid-cols-2"><h3 className="font-semibold sm:col-span-2">Update {editing.fullName}</h3>{[["fullName", "Full name", "text"], ["email", "Email", "email"], ["phone", "Phone number", "tel"], ["password", "New password (optional)", "password"]].map(([name, label, type]) => <label key={name} className="text-sm text-slate-600">{label}<input type={type} inputMode={name === "phone" ? "numeric" : undefined} maxLength={name === "phone" ? 10 : undefined} value={form[name]} onChange={(event) => { const value = name === "phone" ? event.target.value.replace(/\D/g, "").slice(0, 10) : event.target.value; setForm((current) => ({ ...current, [name]: value })); }} className="mt-1 h-10 w-full rounded-lg border px-3"/></label>)}<div className="flex gap-2 sm:col-span-2"><button disabled={busy} className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">{busy ? "Saving…" : "Save changes"}</button><button type="button" onClick={() => setEditing(null)} className="rounded-lg border px-4 py-2 text-sm">Cancel</button></div></form>}
+        {resetSuccess && <p role="status" className="mt-3 rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{resetSuccess}</p>}
+        {editing && <><form onSubmit={submit} className="mt-5 grid gap-3 rounded-2xl border bg-white p-5 sm:grid-cols-2"><h3 className="font-semibold sm:col-span-2">Update {editing.fullName}</h3>{[["fullName", "Full name", "text"], ["email", "Email", "email"], ["phone", "Phone number", "tel"]].map(([name, label, type]) => <label key={name} className="text-sm text-slate-600">{label}<input type={type} inputMode={name === "phone" ? "numeric" : undefined} maxLength={name === "phone" ? 10 : undefined} value={form[name]} onChange={(event) => { const value = name === "phone" ? event.target.value.replace(/\D/g, "").slice(0, 10) : event.target.value; setForm((current) => ({ ...current, [name]: value })); }} className="mt-1 h-10 w-full rounded-lg border px-3"/></label>)}<div className="flex gap-2 sm:col-span-2"><button disabled={busy} className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">{busy ? "Saving…" : "Save changes"}</button><button type="button" onClick={() => { setEditing(null); setResetOpen(false); }} className="rounded-lg border px-4 py-2 text-sm">Cancel</button></div></form><section className="mt-3 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-white p-5"><div className="flex items-start gap-3"><span className="grid size-10 place-items-center rounded-xl bg-indigo-50 text-indigo-700"><KeyRound size={19}/></span><div><h3 className="font-semibold text-slate-900">Account Security</h3><p className="mt-1 text-sm text-slate-500">Set a new sign-in password for this manager.</p></div></div><button type="button" onClick={() => { setResetSuccess(""); setResetOpen(true); }} className="rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700">Reset Password</button></section><PasswordResetModal key={editing.id} open={resetOpen} entityLabel="Manager" onClose={() => setResetOpen(false)} onSubmit={(passwords) => resetManagerPassword(editing.id, passwords)} onSuccess={() => { setResetOpen(false); setResetSuccess("Manager password updated successfully."); }} /></>}
         <div className="mt-5 overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm"><table className="w-full text-left text-sm"><thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500"><tr>{["Manager", "Email", "Phone", "Status", "Created", "Actions"].map((heading) => <th key={heading} className="px-5 py-3.5 font-semibold">{heading}</th>)}</tr></thead><tbody>{visibleRows.map((manager) => <tr key={manager.id} className="border-t border-slate-100 transition hover:bg-slate-50"><td className="px-5 py-3.5"><span className="flex items-center gap-3"><span className="grid size-9 place-items-center rounded-full bg-indigo-50 text-xs font-bold text-indigo-700">{manager.fullName.split(/\s+/).map((part) => part[0]).slice(0, 2).join("").toUpperCase()}</span><span className="font-semibold text-slate-800">{manager.fullName}</span></span></td><td className="px-5 py-3.5 text-slate-600">{manager.email}</td><td className="px-5 py-3.5 text-slate-600">{manager.phone}</td><td className="px-5 py-3.5"><span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${manager.status === "ACTIVE" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>{manager.status === "ACTIVE" ? "Active" : "Inactive"}</span></td><td className="px-5 py-3.5 text-slate-500">{manager.createdAt ? new Date(manager.createdAt).toLocaleDateString() : "—"}</td><td className="space-x-3 px-5 py-3.5"><button type="button" onClick={() => startEdit(manager)} className="font-semibold text-indigo-700 hover:text-indigo-900">Edit</button>{manager.status === "ACTIVE" && <button type="button" onClick={() => deactivate(manager.id)} className="font-semibold text-rose-600 hover:text-rose-800">Deactivate</button>}</td></tr>)}</tbody></table>{loading ? <p className="p-8 text-center text-sm text-slate-500">Loading manager accounts…</p> : !visibleRows.length && <p className="p-8 text-center text-sm text-slate-500">No managers match your search or status filter.</p>}</div>
     </section>;
 }

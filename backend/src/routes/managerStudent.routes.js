@@ -12,6 +12,7 @@ import {
     list,
     listPending,
     reject,
+    resetPassword,
     update,
 } from "../controllers/managerStudent.controller.js";
 
@@ -63,6 +64,11 @@ router.get("/students/:studentId", asyncHandler(getById));
  * @access Private (Manager)
  */
 router.patch("/students/:studentId", asyncHandler(update));
+/** @route PATCH /api/v1/manager/students/:studentId/password
+ * @description Reset a student's password and revoke existing student JWTs
+ * @access Private (Manager)
+ */
+router.patch("/students/:studentId/password", asyncHandler(resetPassword));
 /**
  * @route PATCH /api/v1/manager/students/:studentId/deactivate
  * @description Deactivate a student account

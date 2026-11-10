@@ -6,6 +6,7 @@ import Student from "../models/student.model.js";
 import { envConfig } from "../config/env.js";
 import { httpError } from "../utils/httpError.js";
 import { normalizeEmail, requiredString, validateLoginPassword, validateObjectId, validatePassword, normalizePhone } from "../utils/validation.js";
+import { resetAccountPassword } from "./accountPasswordReset.service.js";
 
 const rounds = 12;
 const safeManager = (m) => ({ id: m._id.toString(), fullName: m.fullName, email: m.email, phone: m.phone, status: m.status, createdAt: m.createdAt, updatedAt: m.updatedAt });
@@ -36,13 +37,22 @@ export async function listManagers(query = {}) {
 }
 export async function getManager(id) { const m = await Manager.findById(validateObjectId(id)); if (!m) throw httpError(404, "Manager not found"); return safeManager(m); }
 export async function updateManager(id, input) {
-    const managerId = validateObjectId(id); const fields = Object.keys(input); const permitted = ["fullName", "email", "phone", "password"];
+    const managerId = validateObjectId(id); const fields = Object.keys(input); const permitted = ["fullName", "email", "phone"];
     if (!fields.length || fields.some((field) => !permitted.includes(field))) throw httpError(400, "Unsupported or empty manager update");
-    const m = await Manager.findById(managerId).select("+password"); if (!m) throw httpError(404, "Manager not found");
+    const m = await Manager.findById(managerId); if (!m) throw httpError(404, "Manager not found");
     if (input.fullName !== undefined) m.fullName = requiredString(input.fullName, "Full name", { maxLength: 120 });
     if (input.email !== undefined) { m.email = normalizeEmail(input.email); await ensureUnique(m.email, managerId); }
     if (input.phone !== undefined) m.phone = normalizePhone(input.phone);
-    if (input.password !== undefined) m.password = await bcrypt.hash(validatePassword(input.password), rounds);
     await m.save(); return safeManager(m);
+}
+/**
+ * Resets only the target Manager's password and invalidates their prior JWTs.
+ *
+ * @param {string} managerId - Manager ObjectId from the admin route.
+ * @param {Object} input - New password and confirmation.
+ * @returns {Promise<void>} Resolves after the credential change persists.
+ */
+export async function resetManagerPassword(managerId, input) {
+    return resetAccountPassword(Manager, managerId, input, "Manager");
 }
 export async function deactivateManager(id) { const m = await Manager.findByIdAndUpdate(validateObjectId(id), { $set: { status: "INACTIVE" } }, { new: true, runValidators: true }); if (!m) throw httpError(404, "Manager not found"); return safeManager(m); }
